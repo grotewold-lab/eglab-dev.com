@@ -1,0 +1,72 @@
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="assets/javascript/vis_tool.js"></script>
+
+    
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" integrity="sha512-57oZ/vW8ANMjR/KQ6Be9v/+/h6bq9/l3f0Oc7vn6qMqyhvPd1cvKBRWWpzu0QoneImqr2SkmO4MSqU+RpHom3Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/themes/base/jquery-ui.min.css" integrity="sha512-ELV+xyi8IhEApPS/pSj66+Jiw+sOT1Mqkzlh8ExXihe4zfqbWkxPRi8wptXIO9g73FSlhmquFlUOuMSoXz5IRw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  
+TF name:
+<input type="text" id="filter_protein_name" placeholder="start typing TF name..." value="ZmMYB6">
+<button id="submit" type="button">Reset Visualization</button>
+
+
+<script>
+$(document).ready(function(){
+
+$('#filter_protein_name').autocomplete({
+source: "https://grassius.eglab-dev.com/pdicollection/autocomplete/protein_name",
+select: function(event,ui){
+$('#filter_protein_name').val(ui.item.value); 
+return false;
+}
+});
+    
+function build_ajax_url_suffix(){    
+    return "8,ASC,-2.1,2.1,,," + $('#filter_protein_name').val() + ",,"
+}
+
+function update_datatable(){
+var url_suffix = build_ajax_url_suffix();        
+var vis_url = 'https://grassius.eglab-dev.com/pdicollection/get_vis_json/'+url_suffix
+var old_c = document.getElementById("my_canvas");
+var c = old_c.cloneNode(true);
+old_c.parentNode.replaceChild(c, old_c);
+var ctx = c.getContext('2d');
+show_network_with_api(ctx,800,600,vis_url,function(){
+add_mouse_listener_to_canvas(c,ctx);
+});
+}
+$('#submit').click(update_datatable);
+update_datatable();
+});
+</script>
+<style>
+.hovermenu {
+position: absolute;
+top: 0px;
+left: -300px;
+display: none;
+font-family: sans-serif;
+font-size: 12px;
+width: 200px;
+height: auto;
+background-color: #555;
+color: #fff;
+text-align: center;
+border-radius: 6px;
+padding: 8px 6px;
+position: absolute;
+z-index: 100;
+opacity: 1.0;
+}
+
+.hovermenu.visible {
+display: block;
+}
+</style>
+<div class="hovermenu"></div>
+
+<canvas id="my_canvas" width="800" height="600">
+
+</canvas>

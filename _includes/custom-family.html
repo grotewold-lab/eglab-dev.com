@@ -1,0 +1,271 @@
+
+
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.css">
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.js"></script>
+<script src="/assets/javascript/domain_canvas.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" integrity="sha512-57oZ/vW8ANMjR/KQ6Be9v/+/h6bq9/l3f0Oc7vn6qMqyhvPd1cvKBRWWpzu0QoneImqr2SkmO4MSqU+RpHom3Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/themes/base/jquery-ui.min.css" integrity="sha512-ELV+xyi8IhEApPS/pSj66+Jiw+sOT1Mqkzlh8ExXihe4zfqbWkxPRi8wptXIO9g73FSlhmquFlUOuMSoXz5IRw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+<hr>
+<p>Required Domains</p>
+<div id='req_container'>
+<input type='text' id='req_text' placeholder='Add Required Domain'/>
+</div>
+
+<hr>
+<p>Forbidden Domains</p>
+<div id='forb_container'>
+<input type='text' id='forb_text' placeholder='Add Forbidden Domain'/>
+</div>
+
+<p id='cf_table_placeholder'>Add a required domain to show transcripts</p>
+<br>
+
+<table align='center' class='wikitable' style='border-collapse:collapse;' id='gene_table'>
+<thead></thead>
+<tbody></tbody>
+</table>
+<script>
+
+var $ = jQuery.noConflict();
+
+$(document).ready(function(){
+
+function add_req( dom ) {
+if( dom.length==0 ){
+return;   
+}
+var new_tag = $("<div class='cf_req_domain'></div>");
+new_tag.append($("<p></p>").text(dom));
+new_tag.append("<button type='button' class='remove_domain'>Remove</button>");
+$('#req_container').append(new_tag);
+$("button.remove_domain").off("click").click(function(e) { 
+$(e.target).parent().remove();
+update();
+});
+}
+
+function add_forb( dom ) {
+if( dom.length==0 ){
+return;   
+}
+var new_tag = $("<div class='cf_forb_domain'></div>");
+new_tag.append($("<p></p>").text(dom));
+new_tag.append("<button type='button' class='remove_domain'>Remove</button>");
+$('#forb_container').append(new_tag);
+$("button.remove_domain").off("click").click(function(e) { 
+$(e.target).parent().remove();
+update();
+});
+}
+
+function sreq(){
+var result = '';
+$(".cf_req_domain p").each(function() {
+result += $(this).text() + ','
+});
+if( result.length > 0 ){
+result = result.substring(0,result.length-1);  
+}
+if( result.trim().length == 0 ){
+return "None";
+}            
+return result;
+}
+
+function sforb(){
+var result = '';
+$(".cf_forb_domain p").each(function() {
+result += $(this).text() + ','
+});
+if( result.length > 0 ){
+result = result.substring(0,result.length-1);  
+}
+if( result.trim().length == 0 ){
+return "None";
+}
+return result;
+}
+
+function update_datatable(){
+var req = sreq();
+
+if( req === "None" ){
+return null;   
+}
+
+var forb = sforb();
+var data = ';' + req + ';' + forb;
+var url = 'https://grassius.eglab-dev.com/customfamily_datatable/Maize/'+sreq()+'/'+sforb();
+gene_table = $('#gene_table').DataTable( {
+destroy: true,
+serverSide: true,
+ajax: url,
+columns: [
+{"data":"tid","title":"Transcript ID"},
+{"data":"gid","title":"Gene ID"},
+{"data":"domains","title":"Domains"},
+{"data":'protein_name', "title":'Protein Name'},
+{"data":'family', "title":'Family'},
+{"data":'class', "title":'Class'}
+],
+} );
+return data;
+}
+
+
+$('#cf_name').val('Unnamed');add_req('Trihelix');        
+function update() {
+var data = update_datatable();
+
+if( data == null ){
+$('#gene_table_wrapper').hide();
+$('#cf_tip').hide();
+$('#cf_table_placeholder').show();
+} else {
+$('#gene_table_wrapper').show();
+$('#cf_tip').show();
+$('#cf_table_placeholder').hide();
+}
+}
+update();
+
+$('#req_text').autocomplete({
+source: "https://grassius.eglab-dev.com/customfamily_autocomplete",
+select: function(event,ui){
+add_req( ui.item.value );
+$('#req_text').val(''); 
+update();
+return false;
+}
+});
+
+$('#forb_text').autocomplete({
+source: "https://grassius.eglab-dev.com/customfamily_autocomplete",
+select: function(event,ui){
+add_forb( ui.item.value );
+$('#forb_text').val(''); 
+update();
+return false;
+}
+});
+
+$("#cf_name_update").off("click").click(function(e) { 
+update();
+});
+})
+</script>
+
+<div class="familypage_dom_hovermenu"><ul><lh id="familypage_dom_hovermenu_title">title</lh></ul><p id="familypage_dom_hovermenu_desc">description</p></div>
+
+<style>
+
+.wikitable {
+background-color: #f8f9fa;
+color: #202122;
+margin: 1em 0;
+border: 1px solid #a2a9b1;
+border-collapse: collapse;
+}
+
+.wikitable > tr > th, .wikitable > * > tr > th {
+background-color: #eaecf0;
+text-align: center;
+}
+
+.wikitable > tr > th, .wikitable > tr > td, .wikitable > * > tr > th, .wikitable > * > tr > td {
+border: 1px solid #a2a9b1;
+padding: 0.2em 0.4em;
+}
+
+.wikitable tbody, .wikitable tbody tr, .wikitable tbody tr td {
+border-collapse: collapse;
+}
+
+.wikitable * a {
+text-decoration: none;
+color: #0645ad;
+background: none;
+}
+    
+td:nth-child(4) a, td:nth-child(5) a {
+pointer-events: none !important;
+cursor: default !important;
+text-decoration: none !important;
+color: black !important;
+}
+    
+li.ui-menu-item {
+cursor:pointer;   
+}
+
+div#req_container div, div#forb_container div {
+margin: 10px;
+}
+
+div#req_container div:nth-child(3n+2) {
+background-color: #AFA;
+}
+div#req_container div:nth-child(3n+3) {
+background-color: #AAF;
+}
+div#req_container div:nth-child(3n+4) {
+background-color: #FF0;
+}
+
+div#req_container div p, div#forb_container div p {
+display:inline;
+margin: 10px;
+}
+
+p#cf_table_placeholder {
+color:red   
+}
+
+.ui-menu .ui-menu-item-wrapper:hover,
+.ui-menu .ui-menu-item-wrapper.ui-state-active {
+color: white;
+background-color: black;
+}
+
+.familypage_dom_hovermenu {
+position: absolute;
+top: 0px;
+left: -300px;
+display: none;
+font-family: sans-serif;
+font-size: 12px;
+width: 200px;
+height: auto;
+background-color: #555;
+color: #fff;
+text-align: center;
+border-radius: 6px;
+padding: 8px 6px;
+position: absolute;
+z-index: 100;
+opacity: 1.0;
+}
+
+.familypage_dom_hovermenu ul {
+list-style-type: None;
+padding: 0px;
+}
+
+.familypage_dom_hovermenu ul lh {
+font-weight: bold;
+}
+
+.familypage_dom_hovermenu ul li {
+cursor: pointer;
+background-color: #FFF;
+color: #000;
+border-radius: 6px;
+margin: 2px;
+}
+
+.familypage_dom_hovermenu.visible {
+display: block;
+}
+
+</style>
