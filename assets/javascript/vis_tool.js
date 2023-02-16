@@ -241,7 +241,7 @@ function get_details_for_node( node_data ){
 
 function get_url_for_node( node_data ){
     if( isTF(node_data) ){
-        return 'https://eglab-dev.com/proteininfor/Maize/' + node_data.protein_name
+        return 'https://grassius.eglab-dev.com/proteininfor/Maize/' + node_data.protein_name
     } else {
         return 'http://maizegdb.org/gene_center/gene/' + node_data.gene_id;   
     }
@@ -260,6 +260,7 @@ function update_display( ctx ){
     }
 
     // draw nodes
+    ctx.strokeStyle = 'black'
     ctx.font = '12px monospaced';
     ctx.lineWidth = 1;
     ctx.setLineDash([]);
@@ -267,6 +268,10 @@ function update_display( ctx ){
     for( var i = 0 ; i < n_nodes ; i++ ){
         var node = ctx.nodes[i]
         drawNode(ctx, node, ctx.view_scale, ctx.view_offset )
+    }
+    for( var i = 0 ; i < n_nodes ; i++ ){
+        var node = ctx.nodes[i]
+        drawNodeLabel(ctx, node, ctx.view_scale, ctx.view_offset )
     }
 
     if( ctx.show_legend ){
@@ -299,6 +304,29 @@ function load_more_data_from_api(ctx){
     })
 }
 
+function build_blobs(){
+    
+    blob_colors = [
+        'rgba(150,50,50,.7)',
+        'rgba(50,150,50,.7)',
+        'rgba(50,50,150,.7)',
+    ]
+    
+    var result = []
+    var n = Math.random() * 20;
+    for( var i = 0 ; i < n ; i++ ){
+        var r = Math.random() * 20;
+        var a = Math.random() * Math.PI*2
+        result.push({
+            x:r*Math.cos(a),
+            y:r*Math.sin(a),
+            color:blob_colors[i%blob_colors.length]
+        })
+    }
+    
+    return result;
+}
+
 function update_network_with_json( ctx, json_data ){
     var new_nodes = json_data['nodes']
     var new_edges = json_data['edges']
@@ -322,6 +350,7 @@ function update_network_with_json( ctx, json_data ){
         ctx.nodes.push({
             x: p[0],
             y: p[1],
+            blobs: build_blobs(),
             data: node_data
         })
         ctx.node_coords[node_data.gene_id] = p
@@ -452,12 +481,11 @@ function show_network_with_static_json( ctx, w, h, json_data ){
     
     
     // build edges
-    ctx.strokeStyle = 'black'
     ctx.edges = []
     for( var i = 0 ; i < edges.length ; i++ ){
         var a = node_coords[edges[i].gene_id]
         var b = node_coords[edges[i].target_id]
-        
+        edges[i].support = Math.floor(Math.random()*3)+1
         var d = [b[0]-a[0],b[1]-a[1]]
         ctx.edges[i] = {
             a: a,
@@ -478,7 +506,8 @@ function show_network_with_static_json( ctx, w, h, json_data ){
         ctx.nodes[i] = {
             x: xy[0],
             y: xy[1],
-            data: nodes[i]
+            data: nodes[i],
+            blobs: build_blobs()
         }
     }    
 
@@ -542,11 +571,27 @@ function drawEdge( ctx, edge, scale=1, offset=[0,0] ){
     var b = edge.b
     var support = edge.data.support
     
-    ctx.lineWidth = support;
-    if( support == 1 ){        
-        ctx.setLineDash([5, 3]);
+    var dx = b[0] - a[0];
+    var dy = b[1] - a[1];
+    var angle = Math.atan2(dy, dx);
+    
+    var dist = 5;
+    
+    var dox = dist*Math.cos(angle+Math.PI/2)
+    var doy = dist*Math.sin(angle+Math.PI/2)
+    var ox = -dox*support/2
+    var oy = -doy*support/2
+    
+    var edge_colors = ['#BCD249','#41B1D1','#D238D1','#FD4741','#37C241'];
+    
+    ctx.lineWidth = 2;
+    
+    for( var i = 0 ; i < support ; i++ ){
+        ctx.strokeStyle = edge_colors[i%edge_colors.length];
+        drawArrow(ctx, a[0]+ox,a[1]+oy,b[0]+ox,b[1]+oy, scale, offset)
+        ox += dox;
+        oy += doy;
     }
-    drawArrow(ctx, a[0],a[1],b[0],b[1], scale, offset)
 }
 
 
@@ -558,55 +603,21 @@ function drawArrow(context, fromx, fromy, tox, toy, scale=1, offset=[0,0]) {
     toy = (toy+offset[1])*scale
     
     context.lineCap = "round";
-    var shrink = 50 * scale; // length reduction in pixels
-    var rawd = Math.sqrt( Math.pow(tox-fromx,2) + Math.pow(toy-fromy,2) )
-    var ratio = (rawd-shrink)/rawd
-    tox = fromx + (tox-fromx)*ratio
-    toy = fromy + (toy-fromy)*ratio
-   
-    
-    var headlen = 10; // length of head in pixels
-    var dx = tox - fromx;
-    var dy = toy - fromy;
-    var angle = Math.atan2(dy, dx);
-
     context.beginPath();
     context.moveTo(fromx, fromy);
     context.lineTo(tox, toy);
-    context.stroke();
-
-    context.beginPath();
-    context.setLineDash([]);
-    context.moveTo(tox, toy);
-    context.lineTo(tox - headlen * Math.cos(angle - Math.PI / 6), toy - headlen * Math.sin(angle - Math.PI / 6));
-    context.moveTo(tox, toy);
-    context.lineTo(tox - headlen * Math.cos(angle + Math.PI / 6), toy - headlen * Math.sin(angle + Math.PI / 6));
     context.stroke();
 }
 
 
 function build_path_for_node_on_canvas( ctx, x, y, node_data, scale=1, offset=[0,0] ){
     
-    x = (x+offset[0]) * scale
-    y = (y+offset[1]) * scale
+    var x = (x+offset[0]) * scale
+    var y = (y+offset[1]) * scale
+    var radius = 45*scale
     
     ctx.beginPath()
-    
-    // draw square if node represents a TF
-    if( isTF(node_data) ){
-          var rad = 40*scale
-          ctx.moveTo(x-rad, y-rad)
-          ctx.lineTo(x-rad, y+rad)
-          ctx.lineTo(x+rad, y+rad)
-          ctx.lineTo(x+rad, y-rad)
-          ctx.lineTo(x-rad, y-rad)
-    }
-    
-    // otherwise draw a circle
-    else {
-        var radius = 45*scale
-        ctx.arc(x, y, radius, 0, 2 * Math.PI, false)
-    }
+    ctx.arc(x, y, radius, 0, 2 * Math.PI, false)
 }
 
 function isTF( node_data ){
@@ -619,6 +630,7 @@ function isTF( node_data ){
 
 function drawLoadMoreButton(ctx){
     
+    ctx.textAlign = 'center';
     x = ctx.load_more_button.x
     y = ctx.load_more_button.y
     w = ctx.load_more_button.w
@@ -762,17 +774,55 @@ function drawNode(ctx, node, scale=1, offset=[0,0] ) {
     build_path_for_node_on_canvas( ctx, x, y, node_data, scale, offset )
     if (fill) {
         ctx.fill()
+        
+        // draw interior details
+        var n = node.blobs.length
+        for( var i = 0; i < n ; i++ ) {
+            var blob = node.blobs[i];
+            ctx.fillStyle = blob.color;
+            ctx.beginPath();
+            ctx.arc((x+offset[0]) * scale+(blob.x * scale), (y+offset[1]) * scale+(blob.y * scale), 5*scale, 0, 2 * Math.PI, false)
+            ctx.fill();
+        }
+        
+        // draw marble effect
+        var gradient = ctx.createRadialGradient(
+            (x+offset[0]) * scale, (y+offset[1]) * scale, scale*40, 
+            (x+offset[0]) * scale, (y+offset[1]) * scale, scale*50);
+        gradient.addColorStop(0, "rgba(0,0,0,0)");
+        gradient.addColorStop(1, 'black');
+        ctx.fillStyle = gradient;
+        build_path_for_node_on_canvas( ctx, x, y, node_data, scale, offset )
+        ctx.fill();
+        
+        var gradient = ctx.createLinearGradient(
+            (x+offset[0]) * scale, (y+offset[1]-30) * scale, 
+            (x+offset[0]) * scale, (y+offset[1]+30) * scale);
+        gradient.addColorStop(0, "rgba(255,255,255,.6)");
+        gradient.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gradient;
+        build_path_for_node_on_canvas( ctx, x, y, node_data, scale, offset )
+        ctx.fill();
     }
     if (stroke) {
         ctx.stroke()
     }
+}
+
+
+function drawNodeLabel(ctx, node, scale=1, offset=[0,0] ) {
+    
+    var x = node.x
+    var y = node.y
+    var node_data = node.data
+
+    var stroke = 'black'
+    var strokeWidth = 1
     
     // draw label
     if( scale > .5 ) {
         x = (x+offset[0]) * scale
         y = (y+offset[1]) * scale
-        ctx.fillStyle = 'black';
-        ctx.textAlign = "center";
         if( isTF(node_data) ){
             var label = node_data.protein_name
             var co = 20
@@ -780,11 +830,19 @@ function drawNode(ctx, node, scale=1, offset=[0,0] ) {
             var label = node_data.gene_id
             var co = 8
         }
-        if( label.length > co ){
-            ctx.fillText(label.substring(0,co), x, y-7);
-            ctx.fillText(label.substring(co), x, y+13);
-        } else {
-            ctx.fillText(label, x, y);
-        }
+        ctx.textAlign = 'left';
+        ctx.font = '12px Arial'
+        
+        ctx.fillStyle = 'white';
+        ctx.fillText(label, x+35*scale+1, y-35*scale);
+        ctx.fillText(label, x+35*scale-1, y-35*scale);
+        ctx.fillText(label, x+35*scale, y-35*scale+1);
+        ctx.fillText(label, x+35*scale, y-35*scale-1);
+        ctx.fillText(label, x+35*scale+1, y-35*scale+1);
+        ctx.fillText(label, x+35*scale-1, y-35*scale+1);
+        ctx.fillText(label, x+35*scale+1, y-35*scale-1);
+        ctx.fillText(label, x+35*scale-1, y-35*scale-1);
+        ctx.fillStyle = 'black';
+        ctx.fillText(label, x+35*scale, y-35*scale);
     }
 }
